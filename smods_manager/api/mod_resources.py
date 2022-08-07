@@ -2,55 +2,11 @@ from flask_restful import Resource
 from flask import request
 
 from smodslib import base_mod, full_mod, generate_dependency_tree, generate_download_url_from_id, search
+from smodslib.smods import get_mod_revisions
+
 from smodslib.model import CatalogueParameters, SortByFilter, TimePeriodFilter
 
-from flask_marshmallow import Marshmallow
-from marshmallow import fields
-from marshmallow_union import Union
-
-ma = Marshmallow()
-
-
-class ModRevisionSchema(ma.Schema):
-    name = fields.String()
-    date = fields.DateTime()
-    download_url = fields.String()
-
-
-class ModBaseSchema(ma.Schema):
-    name = fields.String()
-    id = fields.String()
-    steam_id = fields.String()
-    authors = Union(fields=[fields.String(), fields.List(fields.String())])
-    published_date = fields.DateTime()
-    size = fields.String()
-    has_dependencies = fields.Boolean()
-    latest_revision = fields.Nested(ModRevisionSchema)
-    steam_url = fields.String()
-    url = fields.String()
-
-
-class FullModSchema(ModBaseSchema):
-    description = fields.String()
-    plain_description = fields.String()
-    updated_date = fields.DateTime()
-    dlc_requirements = fields.List(fields.String())
-    mod_requirements = fields.List(fields.Nested(ModBaseSchema))
-    revisions = fields.List(fields.Nested(ModRevisionSchema))
-    tags = fields.List(fields.String())
-    category = fields.String()
-    image_url = fields.String()
-    rating = fields.Integer()
-
-
-class ModDependencySchema(ModBaseSchema):
-    required_by = fields.List(fields.Nested(ModBaseSchema))
-
-
-class ModCatalogueItemSchema(ModBaseSchema):
-    category = fields.String()
-    image_url = fields.String()
-    rating = fields.Integer()
+from schema.mods import ModDependencySchema, ModBaseSchema, FullModSchema, ModRevisionSchema, ModCatalogueItemSchema
 
 
 class ModBaseResource(Resource):
@@ -78,6 +34,14 @@ class DependencyTreeResource(Resource):
 class DownloadUrlResource(Resource):
     def get(self, sid):
         return {"url": generate_download_url_from_id(sid)}
+
+
+class OtherRevisionsResource(Resource):
+    def get(self, sid):
+        _, other_revisions = get_mod_revisions(sid)
+        if not other_revisions:
+            other_revisions = []
+        return ModRevisionSchema(many=True).dump(other_revisions)
 
 
 class SearchResource(Resource):
